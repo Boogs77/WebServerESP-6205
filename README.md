@@ -2,7 +2,9 @@
 
 [![Photo](https://github.com/Boogs77/WebServerESP-6205/raw/main/gallery/WebServerESP_image1.png)](https://github.com/Boogs77/WebServerESP-6205/blob/main/gallery/WebServerESP_image1.png)
 
-The **WebServerESP-6205** is a Wi-Fi expansion module for the [BO6502 modular computer](https://github.com/Boogs77/BO6502_65C02-based_modular_computer). Based on the **ESP8266** (ESP-01 or NodeMCU), it acts as a bridge between the BO6502 serial bus and any Wi-Fi network, exposing a lightweight HTTP web server that allows remote monitoring and control of the 65C02-based system directly from a browser.
+The **WebServerESP-6205** is a Wi-Fi expansion module for the [BO6502 modular computer](https://github.com/Boogs77/BO6502_65C02-based_modular_computer). Based on the **ESP32-WROOM-32D**, it bridges the BO6502 serial port to a Wi-Fi network, exposing a retro-styled **HTTP terminal** — directly usable from any browser, no software required.
+
+The web interface faithfully reproduces the aesthetics of a **Commodore PET** with a simulated LCD display, a physical-style keyboard, and real-time bidirectional communication via **WebSocket**.
 
 ---
 
@@ -10,66 +12,89 @@ The **WebServerESP-6205** is a Wi-Fi expansion module for the [BO6502 modular co
 
 [![Watch the demo](https://img.shields.io/badge/▶%20Watch-Demo%20Video-red?style=for-the-badge)](https://github.com/Boogs77/WebServerESP-6205/raw/main/gallery/WebServerESP_video1.mp4)
 
-> Click the badge above to watch the WebServerESP-6205 in action, or open the video directly from the [`gallery/`](https://github.com/Boogs77/WebServerESP-6205/tree/main/gallery) folder.
+> Open the video directly from the [`gallery/`](https://github.com/Boogs77/WebServerESP-6205/tree/main/gallery) folder.
 
 ---
 
 ## 🧠 How It Works
 
-The ESP8266 communicates with the BO6502 via the **Serial Module** ([BO6502 SERIAL](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/tree/main/BO6502%20SERIAL)) using a standard UART interface. The 65C02 sends data through the serial port; the ESP8266 receives it and serves it over HTTP to any connected browser on the same Wi-Fi network.
+The ESP32-WROOM-32D receives data from the BO6502 via the **SERIAL module** (Rev03, 6551 ACIA) through the **HW-044 RS-232 to TTL converter**, using **UART2** at **19200 baud 8N1**. The data is served in real time to the browser via **WebSocket** on port 80. The user can also type commands directly in the browser and send them back to the 65C02.
 
 Key features:
-- **Wi-Fi Web Server** hosted on ESP8266 (port 80)
-- **UART bridge** between BO6502 Serial Module and ESP8266
-- **Real-time data display** from the 65C02 in the browser
-- Lightweight firmware written in **C++ (Arduino framework)**
+- **Wi-Fi Web Server** (port 80) with retro **miniPET-style** HTML interface
+- **WebSocket** (`/ws`) for real-time bidirectional communication
+- **Simulated LCD display** (20×16 chars) with scanline effect and blinking cursor
+- **Clickable PET keyboard** in the browser — sends characters directly to the 65C02
+- **ANSI ESC sequence detection** (`ESC[2JESC[H`) to clear the terminal remotely
+- **Static IP** configurable directly in the sketch
+- **UART2** (GPIO16/GPIO17) dedicated to BO6502 — UART0 free for USB/debug
 
 ---
 
 ## 🔌 Wiring & Connections
 
-The ESP8266 connects to the **BO6502 SERIAL module** (Rev03, address `$CXXX`) via the UART lines. Below is the full connection diagram.
+Between the ESP32 and the BO6502 SERIAL module sits the **HW-044** (MAX3232-based RS-232 ↔ TTL converter), which translates the ±12V RS-232 levels of the ACIA output to 3.3V logic compatible with the ESP32.
 
-### ESP8266 (ESP-01) ↔ BO6502 SERIAL Module
+### Full Chain
 
 ```
-  BO6502 SERIAL Module (Rev03)           ESP8266 ESP-01
-  ┌──────────────────────────┐           ┌─────────────┐
-  │                          │           │             │
-  │  TX  (Serial out → CPU)  │──────────▶│  RX  (GPIO3)│
-  │                          │           │             │
-  │  RX  (Serial in ← CPU)   │◀──────────│  TX  (GPIO1)│
-  │                          │           │             │
-  │  GND                     │───────────│  GND        │
-  │                          │           │             │
-  │  VCC (3.3V)              │───────────│  VCC (3.3V) │
-  │                          │           │             │
-  └──────────────────────────┘           │  CH_PD ─ VCC│
-                                         │  RST   ─ VCC│
-                                         └─────────────┘
+  BO6502 SERIAL Module (Rev03)
+  6551 ACIA — address $CXXX
+  19200 baud / 8N1
+         │
+         │  RS-232 (±12V)  DB9
+         ▼
+  ┌─────────────────┐
+  │    HW-044       │  MAX3232 RS-232 ↔ TTL 3.3V
+  │                 │
+  │  R1IN  ◀── DB9 TX │  (RS-232 from ACIA TX)
+  │  T1OUT ──▶ DB9 RX │  (RS-232 to  ACIA RX)
+  │                 │
+  │  R1OUT ──▶ TXD  │ ──▶ GPIO16 (RX2) ESP32
+  │  T1IN  ◀── RXD  │ ◀── GPIO17 (TX2) ESP32
+  │                 │
+  │  VCC   ◀── 3.3V │
+  │  GND   ◀── GND  │
+  └─────────────────┘
+         │
+         │  TTL 3.3V
+         ▼
+  ┌───────────────────────┐
+  │   ESP32-WROOM-32D     │
+  │                       │
+  │  GPIO16  (RX2/UART2)  │ ◀── HW-044 R1OUT (data from BO6502)
+  │  GPIO17  (TX2/UART2)  │ ──▶ HW-044 T1IN  (data to   BO6502)
+  │  3.3V                 │ ──▶ HW-044 VCC
+  │  GND                  │ ──▶ HW-044 GND
+  │                       │
+  │  GPIO1  (TX0/UART0)   │ ──▶ USB / Arduino IDE (debug)
+  │  GPIO3  (RX0/UART0)   │ ◀── USB / Arduino IDE (flash)
+  └───────────────────────┘
+
+  Baud rate: 19200  │  Format: 8N1  │  Logic HW-044 → ESP32: 3.3V
 ```
 
-> ⚠️ **Important:** The BO6502 SERIAL module uses **3.3V logic levels** through its onboard level shifter. The ESP8266 also operates at 3.3V. Do **not** connect directly to the BO6502 backplane bus (5V) without a level converter.
+### Pin Reference Table
 
-### Signal Reference
+| ESP32-WROOM-32D | HW-044 Pin | BO6502 SERIAL | Direction       | Notes                               |
+|-----------------|------------|---------------|-----------------|-------------------------------------|
+| GPIO16 (RX2)    | R1OUT      | ACIA TX       | BO6502 → ESP32  | Receive data from 65C02             |
+| GPIO17 (TX2)    | T1IN       | ACIA RX       | ESP32 → BO6502  | Send commands to 65C02              |
+| 3.3V            | VCC        | —             | Power           | Powers the HW-044 module            |
+| GND             | GND        | —             | Common ground   |                                     |
+| GPIO1 (TX0)     | —          | —             | USB/PC          | Reserved: Arduino IDE serial debug  |
+| GPIO3 (RX0)     | —          | —             | USB/PC          | Reserved: Arduino IDE upload        |
 
-| ESP8266 Pin | BO6502 SERIAL Signal | Direction    | Notes                          |
-|-------------|----------------------|--------------|-------------------------------|
-| TX (GPIO1)  | RX                   | ESP → Serial | ESP transmits to BO6502        |
-| RX (GPIO3)  | TX                   | Serial → ESP | BO6502 transmits to ESP        |
-| GND         | GND                  | —            | Common ground                  |
-| VCC         | 3.3V                 | —            | Power from Serial module or ext|
-| CH_PD       | —                    | —            | Tie to VCC to enable module    |
-| RST         | —                    | —            | Tie to VCC for normal operation|
+> ⚠️ **Important:** Connect the ESP32 to the **TTL side** (R1OUT / T1IN) of the HW-044 — never directly to the DB9 RS-232 connector, which carries ±12V and would damage the ESP32.
 
 ### BO6502 SERIAL Module Reference
 
-The **BO6502 SERIAL** module (Rev03) provides asynchronous RS-232-compatible UART communication for the BO6502 system:
+The **BO6502 SERIAL** module (Rev03) provides asynchronous UART communication for the BO6502 system:
 
 - **Chip:** MOS **6551 ACIA** (Asynchronous Communications Interface Adapter)
 - **Address:** `$CXXX` range on the BO6502 memory map
-- **Baud Rate:** Configurable (typically 9600 or 19200 baud)
-- **Logic Level:** Onboard MAX232 / level-shifter for RS-232 compatibility; 3.3V side available for direct ESP connection
+- **Baud Rate:** **19200 baud**, 8N1
+- **Output:** RS-232 via DB9 connector (MAX232 onboard) → connect to HW-044 input
 - **Reference:** [BO6502 SERIAL Module](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/tree/main/BO6502%20SERIAL)
 
 [![Serial PCB](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/blob/main/BO6502%20SERIAL/gallery/Serial_final_rev03.png?raw=true)](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/blob/main/BO6502%20SERIAL/gallery/Serial_final_rev03.png)
@@ -78,31 +103,61 @@ The **BO6502 SERIAL** module (Rev03) provides asynchronous RS-232-compatible UAR
 
 ## ⚙️ Firmware & Setup
 
-The firmware is written for the **Arduino IDE** with the ESP8266 core.
+The firmware is an **Arduino IDE sketch** (`.ino`), open source and available directly in this repository. No pre-compiled binary is distributed — simply open the sketch in the Arduino IDE, configure your network parameters, and upload.
+
+### Arduino IDE Setup
+
+1. Install the **ESP32 board package**:  
+   `File → Preferences → Additional Board Manager URLs`:  
+   `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
+2. In `Tools → Board` select **ESP32 Dev Module**.
+3. Set `Tools → Upload Speed` to `115200`.
 
 ### Required Libraries
 
-- `ESP8266WiFi.h`
-- `ESP8266WebServer.h`
-- `SoftwareSerial.h` *(optional, if using non-default UART pins)*
+Install via `Sketch → Include Library → Manage Libraries`:
 
-### Configuration
+| Library | Author |
+|---|---|
+| **ESPAsyncWebServer** | Mathieu Carbou |
+| **AsyncTCP** | Mathieu Carbou |
 
-Before flashing, edit the following parameters in the sketch:
+`WiFi.h` and `HardwareSerial.h` are included with the ESP32 core — no additional installation needed.
+
+### Sketch Configuration
+
+Edit the following parameters at the top of the `.ino` before uploading:
 
 ```cpp
-const char* ssid     = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const int   baudRate = 9600;   // Match BO6502 SERIAL baud rate
+// ─── Wi-Fi ───────────────────────────────────────────────────────
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+
+// ─── Static IP (adjust to your network) ──────────────────────────
+IPAddress local_IP(192, 168, 1, 150);
+IPAddress gateway(192, 168, 1,   1);
+IPAddress subnet (255, 255, 255, 0);
+
+// ─── UART2 — BO6502 SERIAL module via HW-044 ─────────────────────
+#define RS232_BAUD   19200   // must match 6551 ACIA configuration
+#define RS232_RX_PIN 16      // GPIO16 ← HW-044 R1OUT
+#define RS232_TX_PIN 17      // GPIO17 → HW-044 T1IN
 ```
 
-### Flashing
+The UART2 port is initialized in `setup()` as:
 
-The pre-compiled binary is available in the [`bin/`](https://github.com/Boogs77/WebServerESP-6205/tree/main/bin) folder and can be flashed directly with `esptool`:
-
-```bash
-esptool.py --port /dev/ttyUSB0 --baud 115200 write_flash 0x00000 firmware.bin
+```cpp
+Serial2.begin(RS232_BAUD, SERIAL_8N1, RS232_RX_PIN, RS232_TX_PIN);
 ```
+
+### Accessing the Terminal
+
+Once the ESP32 connects to the Wi-Fi network, open a browser and navigate to:
+
+```
+http://192.168.1.150/
+```
+*(or the IP shown on the Arduino IDE serial monitor at startup)*
 
 ---
 
@@ -118,7 +173,8 @@ esptool.py --port /dev/ttyUSB0 --baud 115200 write_flash 0x00000 firmware.bin
 - **SERIAL Module (Rev03):** [BO6502 SERIAL Reference](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/tree/main/BO6502%20SERIAL)
 - **CPU Module:** [BO6502 CPU Reference](https://github.com/Boogs77/BO6502_65C02-based_modular_computer/tree/main/BO6502%20CPU)
 - **miniPET Project:** [Boogs77/miniPET_65c02](https://github.com/Boogs77/miniPET_65c02)
-- **ESP8266 Arduino Core:** [esp8266/Arduino](https://github.com/esp8266/Arduino)
+- **ESPAsyncWebServer:** [mathieucarbou/ESPAsyncWebServer](https://github.com/mathieucarbou/ESPAsyncWebServer)
+- **ESP32 Arduino Core:** [espressif/arduino-esp32](https://github.com/espressif/arduino-esp32)
 
 ---
 
