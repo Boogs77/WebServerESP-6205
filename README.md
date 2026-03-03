@@ -10,9 +10,7 @@ The web interface faithfully reproduces the aesthetics of a **Commodore PET** wi
 
 ## 🎬 Demo Video
 
-[![Watch the demo](https://img.shields.io/badge/▶%20Watch-Demo%20Video-red?style=for-the-badge)](https://github.com/Boogs77/WebServerESP-6205/raw/main/gallery/WebServerESP_video1.mp4)
-
-> Open the video directly from the [`gallery/`](https://github.com/Boogs77/WebServerESP-6205/tree/main/gallery) folder.
+[![Watch the demo](https://img.shields.io/badge/▶%20Watch-Demo%20Video-red?style=for-the-badge)]([https://github.com/Boogs77/WebServerESP-6205/raw/main/gallery/WebServerESP_video1.mp4](https://www.youtube.com/watch?v=nsjVCyOfUFU))
 
 ---
 
