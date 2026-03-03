@@ -161,6 +161,22 @@ http://192.168.1.150/
 
 ---
 
+## 🖥️ Compatible Systems
+
+The WebServerESP-6205 works with any BO6502-based system equipped with the SERIAL module. It has been tested on:
+
+### [BO6502 Modular Computer](https://github.com/Boogs77/BO6502_65C02-based_modular_computer)
+The full modular backplane system, connecting the SERIAL module (Rev03) via DB9 → HW-044 → ESP32.
+
+### [miniPET 65C02](https://github.com/Boogs77/miniPET_65c02)
+The compact all-in-one retro computer in a 3D-printed Commodore PET-style enclosure. The miniPET integrates the same BO6502 SERIAL module at address `$CXXX` — the wiring and baud rate are identical.
+
+[![miniPET](https://github.com/Boogs77/miniPET_65c02/raw/main/gallery/miniPET_image1.png)](https://github.com/Boogs77/miniPET_65c02)
+
+> Connect the HW-044 to the miniPET's SERIAL module DB9 port exactly as described in the [Wiring section](#-wiring--connections) above — no firmware changes needed.
+
+---
+
 ## 🖼️ Project Gallery
 
 [![](https://github.com/Boogs77/WebServerESP-6205/raw/main/gallery/WebServerESP_image1.png)](https://github.com/Boogs77/WebServerESP-6205/blob/main/gallery/WebServerESP_image1.png)
